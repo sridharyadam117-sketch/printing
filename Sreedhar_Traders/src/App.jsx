@@ -1,56 +1,58 @@
-import { useState, useEffect } from "react";
-import qz from "qz-tray";
-import {
-  Printer, X, Play, Loader2, Trash2, Tag, Plus
-} from "lucide-react";
+import { useState, useEffect, useRef } from 'react';
+import qz from 'qz-tray';
 
 export default function App() {
-  // --- STATE MANAGEMENT ---
-  const [queue, setQueue] = useState([]);
-  const [status, setStatus] = useState("Ready");
-  const [isPrinting, setIsPrinting] = useState(false);
+  const [numPrints, setNumPrints] = useState(1);
+  const [isConnected, setIsConnected] = useState(false);
+  
+  // State variables for Label Content
+  const [centerText, setCenterText] = useState('555');
+  const [boxTL, setBoxTL] = useState('666'); 
+  const [boxTR, setBoxTR] = useState('60'); 
+  const [boxBL, setBoxBL] = useState('10'); 
+  const [boxBR, setBoxBR] = useState('1');  
 
-  // --- STRICT PHYSICAL DIMENSIONS ---
-  // Guaranteed to prevent 1st and 4th border cut-offs
-  const PRINT_CONFIG = {
-    paperWidth: 101.6,
-    paperHeight: 25,
-    labelWidth: 21,    // Shrunk to 21mm to create massive safety buffers
-    labelHeight: 22,
-    horizontalGap: 3.8, 
-    leftMargin: 3,     // 3mm left buffer (Avoids left hardware dead-zone)
-    topMargin: 1,
-  };
-  // Math Check: 3mm (Left Margin) + 84mm (4 Labels @ 21mm) + 11.4mm (3 Gaps @ 3.8mm) = 98.4mm.
-  // 101.6mm (Total) - 98.4mm = 3.2mm Right Margin. Both sides are completely safe!
+  // Calibration (in millimeters) - Left Margin completely removed!
+  const [labelWidth, setLabelWidth] = useState(22);
+  const [labelHeight, setLabelHeight] = useState(22);
+  const [horizontalGap, setHorizontalGap] = useState(3.5); 
+  const [topMargin, setTopMargin] = useState(1.5);
 
-  const logStatus = (msg, isError = false) => {
-    setStatus(isError ? `❌ ${msg}` : msg);
-  };
+  const labelRef = useRef(null);
 
-  const initQZ = async () => {
-    try {
-      if (qz.websocket.isActive()) return;
-      logStatus("Connecting to QZ Tray...");
-      await qz.websocket.connect();
-      logStatus("QZ Tray Connected.");
-    } catch (err) {
-      logStatus("QZ Tray not running.", true);
-      throw err;
+  useEffect(() => {
+    const connectQZ = async () => {
+      try {
+        if (!qz.websocket.isActive()) {
+          await qz.websocket.connect();
+        }
+        setIsConnected(true);
+      } catch (err) {
+        if (err.message?.includes('Waiting for previous disconnect') || err.message?.includes('cancelled')) {
+          setIsConnected(true);
+        } else {
+          console.error('QZ Tray Connection Error:', err);
+          setIsConnected(false);
+        }
+      }
+    };
+    connectQZ();
+  }, []);
+
+  const handlePrint = async () => {
+    if (!isConnected) {
+      alert('QZ Tray is not connected. Please ensure the application is running.');
+      return;
     }
-  };
 
-  const printBulkLabels = async () => {
-    if (queue.length === 0) return;
-    setIsPrinting(true);
-    
     try {
-      await initQZ();
       const printer = await qz.printers.getDefault();
-      
+      const totalLabels = parseInt(numPrints, 10) || 1;
+
+      // CONFIG: Exactly matches your Windows Driver 101.6mm
       const config = qz.configs.create(printer, {
         copies: 1, 
-        size: { width: PRINT_CONFIG.paperWidth, height: PRINT_CONFIG.paperHeight }, 
+        size: { width: 101.6, height: 25 }, 
         units: 'mm',
         margins: 0,
         orientation: 'portrait' 
@@ -58,39 +60,31 @@ export default function App() {
 
       const printData = [];
       const labelsPerRow = 4;
-      const totalRows = Math.ceil(queue.length / labelsPerRow);
+      const totalRows = Math.ceil(totalLabels / labelsPerRow);
 
-      // Loop through queue and chunk into rows of 4
       for (let r = 0; r < totalRows; r++) {
         let rowHtml = `<div class="row">`;
         
         for (let c = 0; c < labelsPerRow; c++) {
-          const itemIndex = r * labelsPerRow + c;
-          
-          if (itemIndex < queue.length) {
-            const item = queue[itemIndex];
-            
-            // Map product data into the grid boxes
+          if (r * labelsPerRow + c < totalLabels) {
             rowHtml += `
               <div class="label">
                 <div class="header">SREEDHAR<br/>TRADERS</div>
-                <div class="center-text">${item.sku || ''}</div>
+                <div class="center-text">${centerText}</div>
                 <div class="grid">
-                  <div class="box box-tl">${item.grams || ''}</div>
-                  <div class="box box-tr">${item.stoneWeight || ''}</div>
-                  <div class="box box-bl">${item.netWeight || ''}</div>
-                  <div class="box box-br">${item.itemCode || ''}</div>
+                  <div class="box box-tl">${boxTL}</div>
+                  <div class="box box-tr">${boxTR}</div>
+                  <div class="box box-bl">${boxBL}</div>
+                  <div class="box box-br">${boxBR}</div>
                 </div>
               </div>
             `;
           } else {
-            // Empty label placeholders must have transparent borders to keep grid size perfect
             rowHtml += `<div class="label empty-label"></div>`;
           }
         }
         rowHtml += `</div>`;
 
-        // Wrap the row in the strict CSS layout engine
         printData.push({
           type: 'html',
           format: 'plain',
@@ -98,24 +92,34 @@ export default function App() {
             <html>
             <head>
               <style>
-                @page { size: ${PRINT_CONFIG.paperWidth}mm ${PRINT_CONFIG.paperHeight}mm; margin: 0; padding: 0; }
-                body { margin: 0; padding: 0; font-family: sans-serif; background: white; color: black; width: ${PRINT_CONFIG.paperWidth}mm; height: ${PRINT_CONFIG.paperHeight}mm; overflow: hidden; }
+                @page { size: 101.6mm 25mm; margin: 0; padding: 0; }
+                body { 
+                  margin: 0; 
+                  padding: 0; 
+                  font-family: sans-serif; 
+                  background: white; 
+                  color: black; 
+                  width: 101.6mm; 
+                  height: 25mm; 
+                  overflow: hidden; 
+                }
                 
                 .row { 
                   display: flex; 
-                  width: ${PRINT_CONFIG.paperWidth}mm; 
-                  height: ${PRINT_CONFIG.paperHeight}mm; 
+                  width: 101.6mm; 
+                  height: 25mm; 
                   box-sizing: border-box; 
-                  margin-left: ${PRINT_CONFIG.leftMargin}mm;
-                  margin-top: ${PRINT_CONFIG.topMargin}mm;
-                  gap: ${PRINT_CONFIG.horizontalGap}mm; 
+                  justify-content: center; /* MAGIC FIX: Automatically centers the 4 labels perfectly */
+                  align-items: flex-start; /* Keeps them aligned to the top */
+                  padding-top: ${topMargin}mm; /* Pushes them down without breaking the layout */
+                  gap: ${horizontalGap}mm; 
                 }
                 
                 .label { 
-                  width: ${PRINT_CONFIG.labelWidth}mm; 
-                  min-width: ${PRINT_CONFIG.labelWidth}mm;
-                  height: ${PRINT_CONFIG.labelHeight}mm; 
-                  min-height: ${PRINT_CONFIG.labelHeight}mm;
+                  width: ${labelWidth}mm; 
+                  min-width: ${labelWidth}mm;
+                  height: ${labelHeight}mm; 
+                  min-height: ${labelHeight}mm;
                   display: flex; 
                   flex-direction: column; 
                   box-sizing: border-box; 
@@ -123,7 +127,7 @@ export default function App() {
                   border: 1px solid black; 
                 }
                 
-                .empty-label { border: 1px solid transparent !important; }
+                .empty-label { border: none !important; }
                 
                 .header { text-align: center; font-size: 7px; font-weight: bold; text-transform: uppercase; margin-top: 0.5mm; margin-bottom: 0; line-height: 1.1; }
                 .center-text { height: 4mm; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; overflow: hidden; white-space: nowrap; } 
@@ -145,137 +149,176 @@ export default function App() {
       }
 
       await qz.print(config, printData);
-      logStatus(`Success: ${queue.length} labels printed.`);
-      
+
     } catch (err) {
-      logStatus(`Print Error: ${err.message}`, true);
-    } finally {
-      setIsPrinting(false);
+      console.error('Print Error:', err);
+      alert('Failed to print. Check console for details.');
     }
   };
 
-  useEffect(() => {
-    return () => {
-      if (qz.websocket.isActive()) {
-        qz.websocket.disconnect().catch(console.error);
-      }
-    };
-  }, []);
-
-  // Helper to add mock items to queue for testing
-  const addTestItem = () => {
-    const randomNum = Math.floor(Math.random() * 900) + 100;
-    setQueue([...queue, {
-      id: Math.random().toString(36).substr(2, 9),
-      name: "GOLD ITEM 22K",
-      sku: `${randomNum}`,
-      stoneWeight: 10,
-      netWeight: 60,
-      grams: 666,
-      itemCode: "1"
-    }]);
-  };
-
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-8 font-sans">
-      
-      {/* Background Main App UI (Just to show you how it works) */}
-      <div className="max-w-2xl w-full bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center">
-        <h1 className="text-3xl font-bold text-slate-800 mb-4">Inventory Dashboard</h1>
-        <p className="text-slate-500 mb-8">Add items to your print queue to test the 4-up barcode printer.</p>
-        
-        <button 
-          onClick={addTestItem}
-          className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 mx-auto transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          Add Test Product to Queue
-        </button>
-      </div>
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
 
-      {/* --- FLOATING PRINT WIDGET --- */}
-      <div className="fixed bottom-8 right-8 z-[100] w-96 bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] border-2 border-amber-100 overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-amber-700 to-amber-500 p-5 text-white flex justify-between items-center">
-          <div className="flex items-center gap-3 flex-1">
-            <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
-              <Printer className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="block font-serif font-bold text-sm leading-none">Print Registry</span>
-              <span className="text-[10px] uppercase tracking-widest opacity-80">{queue.length} Items Selected</span>
+      <header className="bg-black text-white py-6 px-8 shadow-md sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-wide uppercase">
+              Sreedhar Traders
+            </h1>
+            <p className="text-gray-400 text-sm mt-1">
+              Label Printing Console — Auto-Centered Layout
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-3 bg-gray-900 px-4 py-2 rounded-full border border-gray-700">
+            <span className="text-xs text-gray-400 uppercase tracking-wider font-bold">Printer Status:</span>
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <span className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`}></span>
+              <span className={isConnected ? 'text-green-400' : 'text-red-400'}>
+                {isConnected ? 'Connected' : 'Disconnected'}
+              </span>
             </div>
           </div>
-          <button
-            onClick={() => setQueue([])}
-            className="text-white hover:bg-white/20 rounded-full h-8 w-8 flex items-center justify-center transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
         </div>
+      </header>
 
-        {/* List Area */}
-        <div className="max-h-64 overflow-y-auto p-4 space-y-2 bg-[#FDFCFB] custom-scrollbar">
-          {queue.length === 0 ? (
-            <div className="py-12 flex flex-col items-center justify-center text-slate-300">
-              <Tag className="w-8 h-8 mb-2 opacity-20" />
-              <p className="text-[10px] font-bold uppercase tracking-tighter">Queue is empty</p>
+      <main className="flex-grow p-6 md:p-10 max-w-7xl mx-auto w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+
+          {/* LEFT COLUMN: Live Preview */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden lg:sticky lg:top-[120px]">
+            <div className="bg-gray-100 border-b border-gray-200 px-6 py-4">
+              <h2 className="text-sm font-bold tracking-widest uppercase text-gray-700">
+                Live Layout Preview
+              </h2>
             </div>
-          ) : (
-            queue.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between bg-white p-3 rounded-2xl border border-amber-100/50 group hover:border-amber-300 transition-all shadow-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center text-[10px] font-bold text-amber-700 border border-amber-100">
-                    {item.sku.slice(-2)}
-                  </div>
-                  <div className="text-left">
-                    <p className="text-[10px] font-black text-slate-800 uppercase leading-tight truncate w-40">{item.name}</p>
-                    <div className="flex gap-2 mt-0.5">
-                      <span className="text-[8px] font-bold text-amber-600 font-mono">SKU: {item.sku}</span>
-                      <span className="text-[8px] font-bold text-slate-400 uppercase">{item.grams}g</span>
-                    </div>
+            <div className="p-8 flex flex-col items-center justify-center min-h-[500px]">
+              
+              <p className="text-[10px] uppercase font-bold tracking-widest text-red-400 mb-2">Red dashed box = 101.6mm Physical Roll Edge</p>
+
+              <div className="w-full bg-gray-50 border border-gray-200 shadow-inner rounded-md overflow-x-auto p-4 sm:p-6" ref={labelRef}>
+                
+                {/* PREVIEW CONTAINER - Now Auto Centered */}
+                <div 
+                  className="bg-white border border-dashed border-red-400 mx-auto overflow-hidden flex justify-center items-start"
+                  style={{ width: `${101.6 * 5}px`, height: `${25 * 5}px`, paddingTop: `${topMargin * 5}px` }}
+                >
+                  <div 
+                    className="flex"
+                    style={{ gap: `${horizontalGap * 5}px` }}
+                  >
+                    {[1, 2, 3, 4].map((item) => (
+                      <div key={item} className="border border-black flex flex-col bg-white shrink-0 box-border" style={{ width: `${labelWidth * 5}px`, height: `${labelHeight * 5}px` }}>
+                        <div className="text-center font-bold uppercase text-[12px] leading-tight mt-1 px-1">Sreedhar<br />Traders</div>
+                        <div className="flex-1 flex items-center justify-center overflow-hidden px-1"><span className="text-black text-[13px] font-bold tracking-widest">{centerText}</span></div>
+                        <div className="h-[40%] w-full grid grid-cols-[7fr_3fr] grid-rows-2 border-t border-black text-[12px] font-bold">
+                          <div className="border-r border-b border-black flex items-center justify-center px-1">{boxTL}</div>
+                          <div className="border-b border-black flex items-center justify-center px-1">{boxTR}</div>
+                          <div className="border-r border-black flex items-center justify-center px-1">{boxBL}</div>
+                          <div className="flex items-center justify-center px-1">{boxBR}</div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <button
-                  onClick={() => setQueue(queue.filter(q => q.id !== item.id))}
-                  className="opacity-0 group-hover:opacity-100 h-8 w-8 flex items-center justify-center rounded-full text-red-400 hover:bg-red-50 hover:text-red-600 transition-all"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))
-          )}
-        </div>
 
-        {/* Footer Controls */}
-        <div className="p-6 bg-white border-t border-amber-50">
-          <div className={`text-[9px] text-center mb-4 font-mono font-bold px-3 py-1 rounded-full uppercase tracking-tighter ${status.includes('❌') ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"}`}>
-            {status}
+              </div>
+              
+              <p className="text-gray-400 text-xs mt-6 text-center max-w-sm">
+                The layout is now strictly auto-centered. Only adjust Width, Height, and Gap.
+              </p>
+            </div>
           </div>
 
-          <button
-            disabled={isPrinting || queue.length === 0}
-            className={`w-full font-black h-14 rounded-[1.25rem] shadow-xl transition-all flex items-center justify-center gap-3 text-xs tracking-widest uppercase ${
-              isPrinting || queue.length === 0 
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
-                : 'bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white shadow-green-200 active:scale-95 cursor-pointer'
-            }`}
-            onClick={printBulkLabels}
-          >
-            {isPrinting ? (
-              <Loader2 className="animate-spin w-5 h-5" />
-            ) : (
-              <>
-                <Play className="w-4 h-4 fill-current" />
-                Print 4-Up Grid Labels
-              </>
-            )}
-          </button>
+          {/* RIGHT COLUMN: Controls */}
+          <div className="flex flex-col gap-6">
+            
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-gray-100 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+                <h2 className="text-sm font-bold tracking-widest uppercase text-gray-700">
+                  Printer Calibration
+                </h2>
+                <span className="text-xs font-bold text-gray-400">MEASUREMENTS IN MM</span>
+              </div>
+              <div className="p-6 grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Label Box Width</label>
+                  <input type="number" step="0.1" value={labelWidth} onChange={(e) => setLabelWidth(Number(e.target.value))} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Label Box Height</label>
+                  <input type="number" step="0.1" value={labelHeight} onChange={(e) => setLabelHeight(Number(e.target.value))} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Gap Between Labels</label>
+                  <input type="number" step="0.1" value={horizontalGap} onChange={(e) => setHorizontalGap(Number(e.target.value))} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Top Margin (Push Down)</label>
+                  <input type="number" step="0.1" value={topMargin} onChange={(e) => setTopMargin(Number(e.target.value))} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-gray-100 border-b border-gray-200 px-6 py-4">
+                <h2 className="text-sm font-bold tracking-widest uppercase text-gray-700">
+                  Label Content
+                </h2>
+              </div>
+              <div className="p-6 flex flex-col gap-6">
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Center Text</label>
+                  <input type="text" maxLength={10} value={centerText} onChange={(e) => setCenterText(e.target.value.toUpperCase())} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black uppercase font-medium" />
+                </div>
+                <div className="grid grid-cols-[7fr_3fr] gap-x-3 gap-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">Top Left</label>
+                    <input type="text" maxLength={8} value={boxTL} onChange={(e) => setBoxTL(e.target.value.toUpperCase())} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black uppercase font-medium" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">Top Right</label>
+                    <input type="text" maxLength={4} value={boxTR} onChange={(e) => setBoxTR(e.target.value.toUpperCase())} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black uppercase font-medium" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">Bottom Left</label>
+                    <input type="text" maxLength={8} value={boxBL} onChange={(e) => setBoxBL(e.target.value.toUpperCase())} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black uppercase font-medium" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">Bottom Right</label>
+                    <input type="text" maxLength={4} value={boxBR} onChange={(e) => setBoxBR(e.target.value.toUpperCase())} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black uppercase font-medium" />
+                  </div>
+                </div>
+
+                <div className="border-t border-gray-200 pt-4 mt-2">
+                  <label className="block text-xs font-bold text-gray-600 mb-2">Total Number of Labels</label>
+                  <input type="number" min="1" value={numPrints} onChange={(e) => setNumPrints(e.target.value === '' ? '' : parseInt(e.target.value, 10))} onBlur={() => { if (numPrints === '' || numPrints < 1) setNumPrints(1); }} className="w-full border-2 border-gray-300 rounded-lg p-3 text-lg focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors mb-4" />
+                  
+                  <button onClick={handlePrint} disabled={!isConnected} className={`w-full font-bold py-4 px-6 rounded-lg uppercase tracking-wider transition-all duration-200 ${isConnected ? 'bg-black text-white hover:bg-gray-800 hover:shadow-lg active:scale-[0.98] cursor-pointer' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                    Print {numPrints || 0} Labels
+                  </button>
+                  {!isConnected && (
+                    <p className="text-xs text-red-500 mt-3 text-center font-medium">QZ Tray is disconnected. Ensure it is running.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
-      </div>
+      </main>
+
+      <footer className="bg-white border-t border-gray-200 mt-auto">
+        <div className="max-w-7xl mx-auto py-6 px-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p className="text-sm text-gray-500 font-medium">
+            &copy; {new Date().getFullYear()} Sreedhar Traders. All rights reserved.
+          </p>
+          <p className="text-xs text-gray-400">
+            System configured for 4-up continuous thermal rolls.
+          </p>
+        </div>
+      </footer>
+
     </div>
   );
 }
