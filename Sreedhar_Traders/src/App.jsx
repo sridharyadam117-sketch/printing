@@ -13,13 +13,16 @@ export default function App() {
   const [boxBR, setBoxBR] = useState('1');
 
   // Physical Calibration (millimeters)
-  // Math: 4×21mm labels + 3×2mm gaps = 90mm used. 
-  // 101.6mm roll - 90mm = 11.6mm remaining. Divided by 2 sides = 5.8mm left offset.
   const [labelWidth, setLabelWidth] = useState(21);
   const [labelHeight, setLabelHeight] = useState(23);
   const [horizontalGap, setHorizontalGap] = useState(2);
-  const [leftOffset, setLeftOffset] = useState(5.8); 
-  const [topOffset, setTopOffset] = useState(0);
+  
+  // FIXED: Set to 1.5mm. This is the exact minimum gap needed so the printer 
+  // doesn't cut off the left vertical black line. If the line is still missing, increase to 2.
+  const [leftOffset, setLeftOffset] = useState(1.5); 
+  
+  // Kept negative to keep the print pulled to the top
+  const [topOffset, setTopOffset] = useState(-2); 
 
   const labelRef = useRef(null);
 
@@ -113,8 +116,8 @@ export default function App() {
   }
   html, body {
     width: 101.6mm;
-    height: 25mm;
-    max-height: 25mm;
+    height: 24.5mm; 
+    max-height: 24.5mm;
     overflow: hidden;
     background: white;
     color: black;
@@ -125,9 +128,10 @@ export default function App() {
     flex-direction: row;
     align-items: flex-start;
     width: 101.6mm;
-    height: 25mm;
+    height: 24.5mm;
+    /* This padding is what moves the print right to protect the left line */
     padding-left: ${leftOffset}mm;
-    padding-top: ${topOffset}mm;
+    margin-top: ${topOffset}mm; 
     gap: ${horizontalGap}mm;
     overflow: hidden;
   }
@@ -136,7 +140,8 @@ export default function App() {
     height: ${labelHeight}mm;
     display: flex;
     flex-direction: column;
-    border: 0.3mm solid black;
+    /* This border creates your left line. If it's missing, the printer is physically cutting it off. */
+    border: 0.3mm solid black; 
     flex-shrink: 0;
     overflow: hidden;
   }
@@ -151,7 +156,7 @@ export default function App() {
     font-size: 5.5px;
     font-weight: bold;
     text-transform: uppercase;
-    padding-top: 0.4mm;
+    padding-top: 0; 
     line-height: 1.2;
     flex-shrink: 0;
   }
@@ -251,7 +256,7 @@ export default function App() {
                   style={{
                     gap: `${horizontalGap * 4}px`,
                     paddingLeft: `${leftOffset * 4}px`,
-                    paddingTop: `${topOffset * 4}px`,
+                    marginTop: `${topOffset * 4}px`,
                   }}
                 >
                   {[1, 2, 3, 4].map((item) => (
@@ -286,7 +291,7 @@ export default function App() {
               </div>
 
               <p className="text-gray-400 text-xs mt-3 text-center max-w-sm">
-                If labels bleed off the sticker or shift, adjust Left Offset or Gap in Calibration.
+                <strong>Missing the left line?</strong> Increase the Left Offset to push it out of the dead zone.
               </p>
             </div>
           </div>
