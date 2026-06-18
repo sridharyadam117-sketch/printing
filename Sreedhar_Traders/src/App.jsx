@@ -17,8 +17,8 @@ export default function App() {
   const [labelWidth, setLabelWidth] = useState(21);
   const [labelHeight, setLabelHeight] = useState(23);
   const [horizontalGap, setHorizontalGap] = useState(2);
-  const [leftOffset, setLeftOffset] = useState(1);
-  const [topOffset, setTopOffset] = useState(0);
+  const [leftOffset, setLeftOffset] = useState(0);
+  const [topOffset, setTopOffset] = useState(2);
 
   const labelRef = useRef(null);
 
