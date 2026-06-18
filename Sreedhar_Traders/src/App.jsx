@@ -13,12 +13,13 @@ export default function App() {
   const [boxBR, setBoxBR] = useState('1');
 
   // Physical Calibration (millimeters)
-  // Math: 4×21mm labels + 3×2mm gaps + 1mm left = 91mm — safely fits 101.6mm roll
+  // Math: 4×21mm labels + 3×2mm gaps = 90mm used. 
+  // 101.6mm roll - 90mm = 11.6mm remaining. Divided by 2 sides = 5.8mm left offset.
   const [labelWidth, setLabelWidth] = useState(21);
   const [labelHeight, setLabelHeight] = useState(23);
   const [horizontalGap, setHorizontalGap] = useState(2);
-  const [leftOffset, setLeftOffset] = useState(0);
-  const [topOffset, setTopOffset] = useState(2);
+  const [leftOffset, setLeftOffset] = useState(5.8); 
+  const [topOffset, setTopOffset] = useState(0);
 
   const labelRef = useRef(null);
 
@@ -278,9 +279,9 @@ export default function App() {
 
               {/* Live mm math display */}
               <div className="mt-4 bg-gray-100 rounded-lg px-4 py-3 text-xs text-gray-600 w-full text-center font-mono">
-                Total width used: {(labelWidth * 4 + horizontalGap * 3 + leftOffset).toFixed(1)}mm
-                <span className={`ml-2 font-bold ${(labelWidth * 4 + horizontalGap * 3 + leftOffset) <= 101.6 ? 'text-green-600' : 'text-red-600'}`}>
-                  {(labelWidth * 4 + horizontalGap * 3 + leftOffset) <= 101.6 ? '✓ fits in 101.6mm' : '✗ overflows 101.6mm — reduce width or gap'}
+                Total width used: {(labelWidth * 4 + horizontalGap * 3 + leftOffset * 2).toFixed(1)}mm
+                <span className={`ml-2 font-bold ${(labelWidth * 4 + horizontalGap * 3 + leftOffset * 2) <= 101.6 ? 'text-green-600' : 'text-red-600'}`}>
+                  {(labelWidth * 4 + horizontalGap * 3 + leftOffset * 2) <= 101.6 ? '✓ fits in 101.6mm' : '✗ overflows 101.6mm'}
                 </span>
               </div>
 
