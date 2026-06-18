@@ -12,12 +12,11 @@ export default function App() {
   const [boxBL, setBoxBL] = useState('10'); 
   const [boxBR, setBoxBR] = useState('1');  
 
-  // State variables for Physical Calibration (in millimeters)
+  // Calibration (in millimeters)
   const [labelWidth, setLabelWidth] = useState(22);
   const [labelHeight, setLabelHeight] = useState(22);
-  const [horizontalGap, setHorizontalGap] = useState(3);
-  const [leftOffset, setLeftOffset] = useState(2);
-  const [topOffset, setTopOffset] = useState(1);
+  const [leftNudge, setLeftNudge] = useState(1.5); // Shifts the whole grid right to avoid hardware dead-zones
+  const [topNudge, setTopNudge] = useState(0);
 
   const labelRef = useRef(null);
 
@@ -50,7 +49,7 @@ export default function App() {
       const printer = await qz.printers.getDefault();
       const totalLabels = parseInt(numPrints, 10) || 1;
 
-      // CONFIG FIXED: 101.6mm exactly matches your Windows Driver to prevent rotation
+      // CONFIG: Exactly matches your Windows Driver 101.6mm
       const config = qz.configs.create(printer, {
         copies: 1, 
         size: { width: 101.6, height: 25 }, 
@@ -63,29 +62,33 @@ export default function App() {
       const labelsPerRow = 4;
       const totalRows = Math.ceil(totalLabels / labelsPerRow);
 
+      // Loop to create a separate HTML document/page for each row
       for (let r = 0; r < totalRows; r++) {
         let rowHtml = `<div class="row">`;
         
         for (let c = 0; c < labelsPerRow; c++) {
           if (r * labelsPerRow + c < totalLabels) {
             rowHtml += `
-              <div class="label">
-                <div class="header">SREEDHAR<br/>TRADERS</div>
-                <div class="center-text">${centerText}</div>
-                <div class="grid">
-                  <div class="box box-tl">${boxTL}</div>
-                  <div class="box box-tr">${boxTR}</div>
-                  <div class="box box-bl">${boxBL}</div>
-                  <div class="box box-br">${boxBR}</div>
+              <div class="label-wrapper">
+                <div class="label">
+                  <div class="header">SREEDHAR<br/>TRADERS</div>
+                  <div class="center-text">${centerText}</div>
+                  <div class="grid">
+                    <div class="box box-tl">${boxTL}</div>
+                    <div class="box box-tr">${boxTR}</div>
+                    <div class="box box-bl">${boxBL}</div>
+                    <div class="box box-br">${boxBR}</div>
+                  </div>
                 </div>
               </div>
             `;
           } else {
-            rowHtml += `<div class="label empty-label"></div>`;
+            rowHtml += `<div class="label-wrapper"><div class="label empty-label"></div></div>`;
           }
         }
         rowHtml += `</div>`;
 
+        // Send HTML payload
         printData.push({
           type: 'html',
           format: 'plain',
@@ -94,19 +97,25 @@ export default function App() {
             <head>
               <style>
                 @page { size: 101.6mm 25mm; margin: 0; padding: 0; }
-                body { margin: 0; padding: 0; font-family: sans-serif; background: white; color: black; width: 101.6mm; height: 25mm; }
+                body { margin: 0; padding: 0; font-family: sans-serif; background: white; color: black; width: 101.6mm; height: 25mm; overflow: hidden; }
                 
-                /* Layout powered by your exact calibration measurements */
+                /* MAGIC GRID: Auto-centers 4 labels across the 101.6mm roll perfectly */
                 .row { 
-                  display: flex; 
-                  justify-content: flex-start; 
-                  align-items: flex-start; 
+                  display: grid; 
+                  grid-template-columns: repeat(4, 1fr); 
                   width: 101.6mm; 
                   height: 25mm; 
                   box-sizing: border-box; 
-                  gap: ${horizontalGap}mm; 
-                  padding-left: ${leftOffset}mm;
-                  padding-top: ${topOffset}mm;
+                  padding-left: ${leftNudge}mm;
+                  padding-top: ${topNudge}mm;
+                }
+                
+                .label-wrapper {
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  width: 100%;
+                  height: 100%;
                 }
                 
                 .label { 
@@ -119,7 +128,7 @@ export default function App() {
                   border: 1px solid black; 
                 }
                 
-                .empty-label { border: none !important; width: ${labelWidth}mm; height: ${labelHeight}mm; }
+                .empty-label { border: none !important; }
                 
                 .header { text-align: center; font-size: 7px; font-weight: bold; text-transform: uppercase; margin-top: 0.5mm; margin-bottom: 0; line-height: 1.1; }
                 .center-text { height: 4mm; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; overflow: hidden; white-space: nowrap; } 
@@ -151,7 +160,6 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
 
-      {/* Top Header Section - FIXED TO TOP */}
       <header className="bg-black text-white py-6 px-8 shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:justify-between md:items-end gap-4">
           <div>
@@ -159,7 +167,7 @@ export default function App() {
               Sreedhar Traders
             </h1>
             <p className="text-gray-400 text-sm mt-1">
-              Label Printing Console — 4-Column Roll
+              Label Printing Console — Auto-Grid Alignment
             </p>
           </div>
           
@@ -175,11 +183,10 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Content Layout */}
       <main className="flex-grow p-6 md:p-10 max-w-7xl mx-auto w-full">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
 
-          {/* LEFT COLUMN: Live Preview Card (Sticky under the fixed header) */}
+          {/* LEFT COLUMN: Live Preview */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden lg:sticky lg:top-[120px]">
             <div className="bg-gray-100 border-b border-gray-200 px-6 py-4">
               <h2 className="text-sm font-bold tracking-widest uppercase text-gray-700">
@@ -187,13 +194,15 @@ export default function App() {
               </h2>
             </div>
             <div className="p-8 flex flex-col items-center justify-center min-h-[500px]">
+              
+              {/* Scaled Preview mimicking the Auto-Grid */}
               <div className="w-full bg-gray-50 border border-gray-200 shadow-inner rounded-md overflow-x-auto p-4 sm:p-6" ref={labelRef}>
-                <div className="flex justify-start w-max mx-auto" style={{ gap: `${horizontalGap * 4}px`, paddingLeft: `${leftOffset * 4}px` }}>
+                <div className="grid grid-cols-4 justify-items-center w-max mx-auto min-w-[600px]" style={{ paddingLeft: `${leftNudge * 4}px` }}>
                   {[1, 2, 3, 4].map((item) => (
-                    <div key={item} className="border border-black flex flex-col bg-white shadow-sm shrink-0 box-border" style={{ width: `${labelWidth * 4}px`, height: `${labelHeight * 4}px` }}>
+                    <div key={item} className="border border-black flex flex-col bg-white shadow-sm shrink-0 box-border" style={{ width: `${labelWidth * 5}px`, height: `${labelHeight * 5}px` }}>
                       <div className="text-center font-bold uppercase text-[10px] leading-tight mt-1 px-1">Sreedhar<br />Traders</div>
-                      <div className="flex-1 flex items-center justify-center overflow-hidden px-1"><span className="text-black text-[10px] font-bold tracking-widest">{centerText}</span></div>
-                      <div className="h-[40%] w-full grid grid-cols-[7fr_3fr] grid-rows-2 border-t border-black text-[9px] font-bold">
+                      <div className="flex-1 flex items-center justify-center overflow-hidden px-1"><span className="text-black text-[11px] font-bold tracking-widest">{centerText}</span></div>
+                      <div className="h-[40%] w-full grid grid-cols-[7fr_3fr] grid-rows-2 border-t border-black text-[10px] font-bold">
                         <div className="border-r border-b border-black flex items-center justify-center px-1">{boxTL}</div>
                         <div className="border-b border-black flex items-center justify-center px-1">{boxTR}</div>
                         <div className="border-r border-black flex items-center justify-center px-1">{boxBL}</div>
@@ -203,13 +212,14 @@ export default function App() {
                   ))}
                 </div>
               </div>
+              
               <p className="text-gray-400 text-xs mt-6 text-center max-w-sm">
-                If the printed labels bleed off the physical sticker or are pushed too far right, adjust the Calibration settings.
+                The labels are now mathematically auto-centered. Increase "Master Nudge Left" if the first border gets cut off.
               </p>
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Config Panels (Scrolling) */}
+          {/* RIGHT COLUMN: Controls */}
           <div className="flex flex-col gap-6">
             
             {/* Calibration Card */}
@@ -222,20 +232,20 @@ export default function App() {
               </div>
               <div className="p-6 grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1">Label Width</label>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Label Box Width</label>
                   <input type="number" step="0.5" value={labelWidth} onChange={(e) => setLabelWidth(Number(e.target.value))} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1">Label Height</label>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Label Box Height</label>
                   <input type="number" step="0.5" value={labelHeight} onChange={(e) => setLabelHeight(Number(e.target.value))} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1">Gap Between Labels</label>
-                  <input type="number" step="0.5" value={horizontalGap} onChange={(e) => setHorizontalGap(Number(e.target.value))} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black" />
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Master Nudge Left</label>
+                  <input type="number" step="0.5" value={leftNudge} onChange={(e) => setLeftNudge(Number(e.target.value))} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1">Left Offset (Margin)</label>
-                  <input type="number" step="0.5" value={leftOffset} onChange={(e) => setLeftOffset(Number(e.target.value))} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black" />
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Master Nudge Top</label>
+                  <input type="number" step="0.5" value={topNudge} onChange={(e) => setTopNudge(Number(e.target.value))} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black" />
                 </div>
               </div>
             </div>
@@ -288,19 +298,6 @@ export default function App() {
 
         </div>
       </main>
-
-      {/* Bottom Footer Section */}
-      <footer className="bg-white border-t border-gray-200 mt-auto">
-        <div className="max-w-7xl mx-auto py-6 px-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-gray-500 font-medium">
-            &copy; {new Date().getFullYear()} Sreedhar Traders. All rights reserved.
-          </p>
-          <p className="text-xs text-gray-400">
-            System configured for 4-up continuous thermal rolls (101.6mm x 25mm).
-          </p>
-        </div>
-      </footer>
-
     </div>
   );
 }
