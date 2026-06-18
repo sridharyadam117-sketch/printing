@@ -14,10 +14,10 @@ export default function App() {
 
   // Physical Calibration (millimeters)
   const [labelWidth, setLabelWidth] = useState(22);
-  const [labelHeight, setLabelHeight] = useState(22);
+  const [labelHeight, setLabelHeight] = useState(23);
   const [horizontalGap, setHorizontalGap] = useState(3);
   const [leftOffset, setLeftOffset] = useState(2);
-  const [topOffset, setTopOffset] = useState(1);
+  const [topOffset, setTopOffset] = useState(0);
 
   const labelRef = useRef(null);
 
@@ -114,6 +114,7 @@ export default function App() {
   html, body {
     width: 101.6mm;
     height: 25mm;
+    max-height: 25mm;
     overflow: hidden;
     background: white;
     color: black;
