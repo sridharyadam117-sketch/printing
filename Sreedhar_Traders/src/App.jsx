@@ -1,21 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-// import qz from 'qz-tray'; // <-- UNCOMMENT THIS LINE FOR YOUR LOCAL PROJECT
-
-// Mock object to allow the preview to render without crashing
-const qz = {
-  websocket: {
-    isActive: () => false,
-    connect: async () => { throw new Error('Preview mock'); },
-    disconnect: () => {}
-  },
-  printers: {
-    getDefault: async () => 'Mock Printer'
-  },
-  configs: {
-    create: (printer, config) => config
-  },
-  print: async () => {}
-};
+import qz from 'qz-tray';
 
 export default function App() {
   const [numPrints, setNumPrints] = useState(1);
@@ -32,7 +16,7 @@ export default function App() {
   const [labelWidth, setLabelWidth] = useState(22);
   const [labelHeight, setLabelHeight] = useState(22);
   const [horizontalGap, setHorizontalGap] = useState(3.5); 
-  const [leftMargin, setLeftMargin] = useState(1.5); // Using MARGIN instead of padding
+  const [leftMargin, setLeftMargin] = useState(1.5); 
   const [topMargin, setTopMargin] = useState(1);
 
   const labelRef = useRef(null);
@@ -79,7 +63,6 @@ export default function App() {
       const labelsPerRow = 4;
       const totalRows = Math.ceil(totalLabels / labelsPerRow);
 
-      // Loop to create a separate HTML document/page for each row
       for (let r = 0; r < totalRows; r++) {
         let rowHtml = `<div class="row">`;
         
@@ -98,13 +81,11 @@ export default function App() {
               </div>
             `;
           } else {
-            // Important: Empty label placeholders must be rendered so alignment doesn't collapse
             rowHtml += `<div class="label empty-label"></div>`;
           }
         }
         rowHtml += `</div>`;
 
-        // Send HTML payload
         printData.push({
           type: 'html',
           format: 'plain',
@@ -115,7 +96,6 @@ export default function App() {
                 @page { size: 101.6mm 25mm; margin: 0; padding: 0; }
                 body { margin: 0; padding: 0; font-family: sans-serif; background: white; color: black; width: 101.6mm; height: 25mm; overflow: hidden; }
                 
-                /* Layout strictly using Margins and Flex Gaps */
                 .row { 
                   display: flex; 
                   width: 101.6mm; 
@@ -207,16 +187,12 @@ export default function App() {
               
               <p className="text-[10px] uppercase font-bold tracking-widest text-red-400 mb-2">Red dashed box = 101.6mm Physical Roll Edge</p>
 
-              {/* Scaled Preview mimicking the exact CSS Flex/Margins sent to the printer */}
               <div className="w-full bg-gray-50 border border-gray-200 shadow-inner rounded-md overflow-x-auto p-4 sm:p-6" ref={labelRef}>
                 
-                {/* The Paper Bounding Box */}
                 <div 
                   className="bg-white border border-dashed border-red-400 mx-auto overflow-hidden relative"
                   style={{ width: `${101.6 * 5}px`, height: `${25 * 5}px` }}
                 >
-                  
-                  {/* The Flex Row with Margins */}
                   <div 
                     className="flex"
                     style={{ 
@@ -238,13 +214,12 @@ export default function App() {
                       </div>
                     ))}
                   </div>
-
                 </div>
 
               </div>
               
               <p className="text-gray-400 text-xs mt-6 text-center max-w-sm">
-                If the left edge is still missing on the printed paper, slowly increase the <strong>Left Margin</strong> by 0.5mm.
+                If the left edge is missing on the printed paper, slowly increase the <strong>Left Margin</strong>.
               </p>
             </div>
           </div>
@@ -252,7 +227,6 @@ export default function App() {
           {/* RIGHT COLUMN: Controls */}
           <div className="flex flex-col gap-6">
             
-            {/* Calibration Card */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="bg-gray-100 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
                 <h2 className="text-sm font-bold tracking-widest uppercase text-gray-700">
@@ -284,7 +258,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Print Controls Card */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="bg-gray-100 border-b border-gray-200 px-6 py-4">
                 <h2 className="text-sm font-bold tracking-widest uppercase text-gray-700">
@@ -332,6 +305,18 @@ export default function App() {
 
         </div>
       </main>
+
+      <footer className="bg-white border-t border-gray-200 mt-auto">
+        <div className="max-w-7xl mx-auto py-6 px-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p className="text-sm text-gray-500 font-medium">
+            &copy; {new Date().getFullYear()} Sreedhar Traders. All rights reserved.
+          </p>
+          <p className="text-xs text-gray-400">
+            System configured for 4-up continuous thermal rolls.
+          </p>
+        </div>
+      </footer>
+
     </div>
   );
 }
