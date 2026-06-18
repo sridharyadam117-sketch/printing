@@ -5,14 +5,14 @@ export default function App() {
   const [numPrints, setNumPrints] = useState(1);
   const [isConnected, setIsConnected] = useState(false);
 
-  // State variables for Label Content
+  // Label Content
   const [centerText, setCenterText] = useState('555');
   const [boxTL, setBoxTL] = useState('666');
   const [boxTR, setBoxTR] = useState('60');
   const [boxBL, setBoxBL] = useState('10');
   const [boxBR, setBoxBR] = useState('1');
 
-  // State variables for Physical Calibration (in millimeters)
+  // Physical Calibration (millimeters)
   const [labelWidth, setLabelWidth] = useState(22);
   const [labelHeight, setLabelHeight] = useState(22);
   const [horizontalGap, setHorizontalGap] = useState(3);
@@ -53,15 +53,17 @@ export default function App() {
       const printer = await qz.printers.getDefault();
       const totalLabels = parseInt(numPrints, 10) || 1;
 
-      // FIX: Use landscape orientation so the roll feeds correctly.
-      // Height set to 101.6 (square) to prevent the driver from rotating the job.
+      // Portrait, exactly matching the physical roll dimensions
+      // 101.6mm wide × 25mm tall — 4 labels side by side in one row
       const config = qz.configs.create(printer, {
         copies: 1,
-        size: { width: 101.6, height: 101.6 },
+        size: { width: 101.6, height: 25 },
         units: 'mm',
         margins: 0,
-        orientation: 'landscape',
+        orientation: 'portrait',
         rotation: 0,
+        colorType: 'blackWhite',
+        duplex: false,
       });
 
       const printData = [];
@@ -77,7 +79,7 @@ export default function App() {
               <div class="label">
                 <div class="header">SREEDHAR<br/>TRADERS</div>
                 <div class="center-text">${centerText}</div>
-                <div class="grid">
+                <div class="grid-box">
                   <div class="box box-tl">${boxTL}</div>
                   <div class="box box-tr">${boxTR}</div>
                   <div class="box box-bl">${boxBL}</div>
@@ -94,109 +96,103 @@ export default function App() {
         printData.push({
           type: 'html',
           format: 'plain',
-          data: `
-            <html>
-            <head>
-              <style>
-                /* FIX: @page must declare landscape and exact physical dimensions */
-                @page {
-                  size: 101.6mm 25mm landscape;
-                  margin: 0;
-                  padding: 0;
-                }
-                * { box-sizing: border-box; }
-                body {
-                  margin: 0;
-                  padding: 0;
-                  font-family: Arial, sans-serif;
-                  background: white;
-                  color: black;
-                  width: 101.6mm;
-                  height: 25mm;
-                  overflow: hidden;
-                }
-
-                .row {
-                  display: flex;
-                  flex-direction: row;
-                  justify-content: flex-start;
-                  align-items: flex-start;
-                  width: 101.6mm;
-                  height: 25mm;
-                  gap: ${horizontalGap}mm;
-                  padding-left: ${leftOffset}mm;
-                  padding-top: ${topOffset}mm;
-                  overflow: hidden;
-                }
-
-                .label {
-                  width: ${labelWidth}mm;
-                  height: ${labelHeight}mm;
-                  display: flex;
-                  flex-direction: column;
-                  border: 0.3mm solid black;
-                  flex-shrink: 0;
-                  overflow: hidden;
-                }
-
-                .empty-label {
-                  border: none !important;
-                  width: ${labelWidth}mm;
-                  height: ${labelHeight}mm;
-                  flex-shrink: 0;
-                }
-
-                .header {
-                  text-align: center;
-                  font-size: 5.5px;
-                  font-weight: bold;
-                  text-transform: uppercase;
-                  margin-top: 0.3mm;
-                  line-height: 1.15;
-                  flex-shrink: 0;
-                }
-
-                .center-text {
-                  height: 4mm;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  font-size: 7px;
-                  font-weight: bold;
-                  overflow: hidden;
-                  white-space: nowrap;
-                  flex-shrink: 0;
-                }
-
-                .grid {
-                  display: grid;
-                  grid-template-columns: 7fr 3fr;
-                  grid-template-rows: 1fr 1fr;
-                  flex-grow: 1;
-                  border-top: 0.3mm solid black;
-                  overflow: hidden;
-                }
-
-                .box {
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  font-size: 6px;
-                  font-weight: bold;
-                  overflow: hidden;
-                  white-space: nowrap;
-                }
-                .box-tl { border-right: 0.3mm solid black; border-bottom: 0.3mm solid black; }
-                .box-tr { border-bottom: 0.3mm solid black; }
-                .box-bl { border-right: 0.3mm solid black; }
-                .box-br { }
-              </style>
-            </head>
-            <body>
-              ${rowHtml}
-            </body>
-            </html>
-          `,
+          data: `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<style>
+  @page {
+    size: 101.6mm 25mm;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  html, body {
+    width: 101.6mm;
+    height: 25mm;
+    overflow: hidden;
+    background: white;
+    color: black;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .row {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    width: 101.6mm;
+    height: 25mm;
+    padding-left: ${leftOffset}mm;
+    padding-top: ${topOffset}mm;
+    gap: ${horizontalGap}mm;
+    overflow: hidden;
+  }
+  .label {
+    width: ${labelWidth}mm;
+    height: ${labelHeight}mm;
+    display: flex;
+    flex-direction: column;
+    border: 0.3mm solid black;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .empty-label {
+    width: ${labelWidth}mm;
+    height: ${labelHeight}mm;
+    flex-shrink: 0;
+    border: none;
+  }
+  .header {
+    text-align: center;
+    font-size: 5.5px;
+    font-weight: bold;
+    text-transform: uppercase;
+    padding-top: 0.4mm;
+    line-height: 1.2;
+    flex-shrink: 0;
+  }
+  .center-text {
+    height: 4mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 7px;
+    font-weight: bold;
+    overflow: hidden;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .grid-box {
+    display: grid;
+    grid-template-columns: 7fr 3fr;
+    grid-template-rows: 1fr 1fr;
+    flex-grow: 1;
+    border-top: 0.3mm solid black;
+    overflow: hidden;
+  }
+  .box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 6px;
+    font-weight: bold;
+    overflow: hidden;
+    white-space: nowrap;
+    padding: 0.3mm;
+  }
+  .box-tl { border-right: 0.3mm solid black; border-bottom: 0.3mm solid black; }
+  .box-tr { border-bottom: 0.3mm solid black; }
+  .box-bl { border-right: 0.3mm solid black; }
+  .box-br { }
+</style>
+</head>
+<body>
+  ${rowHtml}
+</body>
+</html>`,
         });
       }
 
@@ -210,7 +206,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
 
-      {/* Top Header Section */}
+      {/* Header */}
       <header className="bg-black text-white py-6 px-8 shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:justify-between md:items-end gap-4">
           <div>
@@ -221,17 +217,10 @@ export default function App() {
               Label Printing Console — 4-Column Roll
             </p>
           </div>
-
           <div className="flex items-center gap-3 bg-gray-900 px-4 py-2 rounded-full border border-gray-700">
             <span className="text-xs text-gray-400 uppercase tracking-wider font-bold">Printer Status:</span>
             <div className="flex items-center gap-2 text-sm font-medium">
-              <span
-                className={`w-2.5 h-2.5 rounded-full ${
-                  isConnected
-                    ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]'
-                    : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
-                }`}
-              ></span>
+              <span className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`}></span>
               <span className={isConnected ? 'text-green-400' : 'text-red-400'}>
                 {isConnected ? 'Connected' : 'Disconnected'}
               </span>
@@ -240,11 +229,11 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Content Layout */}
+      {/* Main */}
       <main className="flex-grow p-6 md:p-10 max-w-7xl mx-auto w-full">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
 
-          {/* LEFT COLUMN: Live Preview */}
+          {/* LEFT: Live Preview */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden lg:sticky lg:top-[120px]">
             <div className="bg-gray-100 border-b border-gray-200 px-6 py-4">
               <h2 className="text-sm font-bold tracking-widest uppercase text-gray-700">
@@ -261,23 +250,22 @@ export default function App() {
                   style={{
                     gap: `${horizontalGap * 4}px`,
                     paddingLeft: `${leftOffset * 4}px`,
+                    paddingTop: `${topOffset * 4}px`,
                   }}
                 >
                   {[1, 2, 3, 4].map((item) => (
                     <div
                       key={item}
-                      className="border border-black flex flex-col bg-white shadow-sm shrink-0 box-border"
+                      className="border border-black flex flex-col bg-white shadow-sm shrink-0"
                       style={{ width: `${labelWidth * 4}px`, height: `${labelHeight * 4}px` }}
                     >
-                      <div className="text-center font-bold uppercase text-[10px] leading-tight mt-1 px-1">
+                      <div className="text-center font-bold uppercase text-[9px] leading-tight mt-1 px-1">
                         Sreedhar<br />Traders
                       </div>
-                      <div className="flex-1 flex items-center justify-center overflow-hidden px-1">
-                        <span className="text-black text-[10px] font-bold tracking-widest">
-                          {centerText}
-                        </span>
+                      <div className="flex items-center justify-center overflow-hidden px-1" style={{ height: '16px' }}>
+                        <span className="text-black text-[10px] font-bold tracking-widest">{centerText}</span>
                       </div>
-                      <div className="h-[40%] w-full grid grid-cols-[7fr_3fr] grid-rows-2 border-t border-black text-[9px] font-bold">
+                      <div className="flex-grow w-full grid grid-cols-[7fr_3fr] grid-rows-2 border-t border-black text-[9px] font-bold">
                         <div className="border-r border-b border-black flex items-center justify-center px-1">{boxTL}</div>
                         <div className="border-b border-black flex items-center justify-center px-1">{boxTR}</div>
                         <div className="border-r border-black flex items-center justify-center px-1">{boxBL}</div>
@@ -288,15 +276,15 @@ export default function App() {
                 </div>
               </div>
               <p className="text-gray-400 text-xs mt-6 text-center max-w-sm">
-                If printed labels bleed off the sticker or shift right, adjust Left Offset in Calibration.
+                If labels bleed off the sticker or shift, adjust Left Offset or Gap in Calibration.
               </p>
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Config Panels */}
+          {/* RIGHT: Config Panels */}
           <div className="flex flex-col gap-6">
 
-            {/* Calibration Card */}
+            {/* Calibration */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="bg-gray-100 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
                 <h2 className="text-sm font-bold tracking-widest uppercase text-gray-700">
@@ -305,60 +293,28 @@ export default function App() {
                 <span className="text-xs font-bold text-gray-400">MEASUREMENTS IN MM</span>
               </div>
               <div className="p-6 grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1">Label Width</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    value={labelWidth}
-                    onChange={(e) => setLabelWidth(Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1">Label Height</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    value={labelHeight}
-                    onChange={(e) => setLabelHeight(Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1">Gap Between Labels</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    value={horizontalGap}
-                    onChange={(e) => setHorizontalGap(Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1">Left Offset (Margin)</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    value={leftOffset}
-                    onChange={(e) => setLeftOffset(Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1">Top Offset (Margin)</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    value={topOffset}
-                    onChange={(e) => setTopOffset(Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black"
-                  />
-                </div>
+                {[
+                  { label: 'Label Width', value: labelWidth, setter: setLabelWidth },
+                  { label: 'Label Height', value: labelHeight, setter: setLabelHeight },
+                  { label: 'Gap Between Labels', value: horizontalGap, setter: setHorizontalGap },
+                  { label: 'Left Offset', value: leftOffset, setter: setLeftOffset },
+                  { label: 'Top Offset', value: topOffset, setter: setTopOffset },
+                ].map(({ label, value, setter }) => (
+                  <div key={label}>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">{label}</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={value}
+                      onChange={(e) => setter(Number(e.target.value))}
+                      className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black"
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Label Content Card */}
+            {/* Label Content */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="bg-gray-100 border-b border-gray-200 px-6 py-4">
                 <h2 className="text-sm font-bold tracking-widest uppercase text-gray-700">
@@ -377,46 +333,23 @@ export default function App() {
                   />
                 </div>
                 <div className="grid grid-cols-[7fr_3fr] gap-x-3 gap-y-3">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-600 mb-1">Top Left</label>
-                    <input
-                      type="text"
-                      maxLength={8}
-                      value={boxTL}
-                      onChange={(e) => setBoxTL(e.target.value.toUpperCase())}
-                      className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black uppercase font-medium"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-600 mb-1">Top Right</label>
-                    <input
-                      type="text"
-                      maxLength={4}
-                      value={boxTR}
-                      onChange={(e) => setBoxTR(e.target.value.toUpperCase())}
-                      className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black uppercase font-medium"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-600 mb-1">Bottom Left</label>
-                    <input
-                      type="text"
-                      maxLength={8}
-                      value={boxBL}
-                      onChange={(e) => setBoxBL(e.target.value.toUpperCase())}
-                      className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black uppercase font-medium"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-600 mb-1">Bottom Right</label>
-                    <input
-                      type="text"
-                      maxLength={4}
-                      value={boxBR}
-                      onChange={(e) => setBoxBR(e.target.value.toUpperCase())}
-                      className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black uppercase font-medium"
-                    />
-                  </div>
+                  {[
+                    { label: 'Top Left', value: boxTL, setter: setBoxTL, max: 8 },
+                    { label: 'Top Right', value: boxTR, setter: setBoxTR, max: 4 },
+                    { label: 'Bottom Left', value: boxBL, setter: setBoxBL, max: 8 },
+                    { label: 'Bottom Right', value: boxBR, setter: setBoxBR, max: 4 },
+                  ].map(({ label, value, setter, max }) => (
+                    <div key={label}>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">{label}</label>
+                      <input
+                        type="text"
+                        maxLength={max}
+                        value={value}
+                        onChange={(e) => setter(e.target.value.toUpperCase())}
+                        className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black uppercase font-medium"
+                      />
+                    </div>
+                  ))}
                 </div>
 
                 <div className="border-t border-gray-200 pt-4 mt-2">
@@ -435,7 +368,6 @@ export default function App() {
                     }}
                     className="w-full border-2 border-gray-300 rounded-lg p-3 text-lg focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors mb-4"
                   />
-
                   <button
                     onClick={handlePrint}
                     disabled={!isConnected}
@@ -447,7 +379,6 @@ export default function App() {
                   >
                     Print {numPrints || 0} Labels
                   </button>
-
                   {!isConnected && (
                     <p className="text-xs text-red-500 mt-3 text-center font-medium">
                       QZ Tray is disconnected. Ensure it is running.
