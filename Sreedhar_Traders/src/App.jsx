@@ -5,12 +5,19 @@ export default function App() {
   const [numPrints, setNumPrints] = useState(1);
   const [isConnected, setIsConnected] = useState(false);
   
-  // State variables pre-filled with the values from your latest printed photo
+  // State variables for Label Content
   const [centerText, setCenterText] = useState('555');
   const [boxTL, setBoxTL] = useState('666'); 
   const [boxTR, setBoxTR] = useState('60'); 
   const [boxBL, setBoxBL] = useState('10'); 
   const [boxBR, setBoxBR] = useState('1');  
+
+  // State variables for Physical Calibration (in millimeters)
+  const [labelWidth, setLabelWidth] = useState(22);
+  const [labelHeight, setLabelHeight] = useState(22);
+  const [horizontalGap, setHorizontalGap] = useState(3);
+  const [leftOffset, setLeftOffset] = useState(2);
+  const [topOffset, setTopOffset] = useState(1);
 
   const labelRef = useRef(null);
 
@@ -43,21 +50,19 @@ export default function App() {
       const printer = await qz.printers.getDefault();
       const totalLabels = parseInt(numPrints, 10) || 1;
 
-      // CONFIG FIXED: Exactly matching your 101.6mm Windows setting to prevent auto-rotation
+      // CONFIG FIXED: 101.6mm exactly matches your Windows Driver to prevent rotation
       const config = qz.configs.create(printer, {
         copies: 1, 
         size: { width: 101.6, height: 25 }, 
         units: 'mm',
         margins: 0,
-        orientation: 'portrait' // Forces the printer to stop rotating the text
+        orientation: 'portrait' 
       });
 
       const printData = [];
       const labelsPerRow = 4;
       const totalRows = Math.ceil(totalLabels / labelsPerRow);
 
-      // We now loop through and create a SEPARATE HTML payload for every single row.
-      // This forces the printer to feed paper for each row, permanently fixing the "shrinking" issue.
       for (let r = 0; r < totalRows; r++) {
         let rowHtml = `<div class="row">`;
         
@@ -81,7 +86,6 @@ export default function App() {
         }
         rowHtml += `</div>`;
 
-        // Push each row as its own "page" to QZ Tray
         printData.push({
           type: 'html',
           format: 'plain',
@@ -92,18 +96,33 @@ export default function App() {
                 @page { size: 101.6mm 25mm; margin: 0; padding: 0; }
                 body { margin: 0; padding: 0; font-family: sans-serif; background: white; color: black; width: 101.6mm; height: 25mm; }
                 
-                /* justify-content: space-between perfectly spaces the 4 labels edge-to-edge */
-                .row { display: flex; justify-content: space-between; align-items: flex-start; width: 101.6mm; height: 25mm; box-sizing: border-box; }
+                /* Layout powered by your exact calibration measurements */
+                .row { 
+                  display: flex; 
+                  justify-content: flex-start; 
+                  align-items: flex-start; 
+                  width: 101.6mm; 
+                  height: 25mm; 
+                  box-sizing: border-box; 
+                  gap: ${horizontalGap}mm; 
+                  padding-left: ${leftOffset}mm;
+                  padding-top: ${topOffset}mm;
+                }
                 
-                /* 24mm width leaves just enough room for the physical gaps on the paper */
-                .label { width: 24mm; height: 24.5mm; display: flex; flex-direction: column; box-sizing: border-box; padding: 0; border: 1px solid black; }
-                .empty-label { border: none !important; }
+                .label { 
+                  width: ${labelWidth}mm; 
+                  height: ${labelHeight}mm; 
+                  display: flex; 
+                  flex-direction: column; 
+                  box-sizing: border-box; 
+                  padding: 0; 
+                  border: 1px solid black; 
+                }
                 
-                /* Removed margin-top to force printing at the absolute top of the label */
+                .empty-label { border: none !important; width: ${labelWidth}mm; height: ${labelHeight}mm; }
+                
                 .header { text-align: center; font-size: 7px; font-weight: bold; text-transform: uppercase; margin-top: 0.5mm; margin-bottom: 0; line-height: 1.1; }
-                
                 .center-text { height: 4mm; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; overflow: hidden; white-space: nowrap; } 
-                
                 .grid { display: grid; grid-template-columns: 7fr 3fr; grid-template-rows: 1fr 1fr; flex-grow: 1; border-top: 1px solid black; }
                 
                 .box { display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; overflow: hidden; white-space: nowrap; padding: 0.5mm; }
@@ -121,7 +140,6 @@ export default function App() {
         });
       }
 
-      // Send the array of rows to the printer
       await qz.print(config, printData);
 
     } catch (err) {
@@ -133,15 +151,15 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
 
-      {/* Top Header Section */}
-      <header className="bg-black text-white py-6 px-8 shadow-md">
+      {/* Top Header Section - FIXED TO TOP */}
+      <header className="bg-black text-white py-6 px-8 shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:justify-between md:items-end gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-wide uppercase">
               Sreedhar Traders
             </h1>
             <p className="text-gray-400 text-sm mt-1">
-              Label Printing Console — 4-Column Roll (101.6×25mm width)
+              Label Printing Console — 4-Column Roll
             </p>
           </div>
           
@@ -161,168 +179,107 @@ export default function App() {
       <main className="flex-grow p-6 md:p-10 max-w-7xl mx-auto w-full">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
 
-          {/* Left Column: Label Preview Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden lg:sticky lg:top-10">
+          {/* LEFT COLUMN: Live Preview Card (Sticky under the fixed header) */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden lg:sticky lg:top-[120px]">
             <div className="bg-gray-100 border-b border-gray-200 px-6 py-4">
               <h2 className="text-sm font-bold tracking-widest uppercase text-gray-700">
-                Live Label Preview
+                Live Layout Preview
               </h2>
             </div>
-
-            <div className="p-8 flex flex-col items-center justify-center min-h-[400px]">
-              
+            <div className="p-8 flex flex-col items-center justify-center min-h-[500px]">
               <div className="w-full bg-gray-50 border border-gray-200 shadow-inner rounded-md overflow-x-auto p-4 sm:p-6" ref={labelRef}>
-                <div className="flex justify-between w-full min-w-max mx-auto gap-2">
+                <div className="flex justify-start w-max mx-auto" style={{ gap: `${horizontalGap * 4}px`, paddingLeft: `${leftOffset * 4}px` }}>
                   {[1, 2, 3, 4].map((item) => (
-                    <div key={item} className="w-[110px] h-[110px] sm:w-[125px] sm:h-[125px] border border-black flex flex-col bg-white shadow-sm shrink-0 box-border">
-                      <div className="text-center font-bold uppercase text-[10px] sm:text-[11px] leading-tight mt-1 px-1">
-                        Sreedhar<br />Traders
-                      </div>
-                      
-                      {/* Dynamic Center Text */}
-                      <div className="h-[22px] w-full flex items-center justify-center overflow-hidden px-1">
-                        <span className="text-black text-[10px] font-bold tracking-widest select-none">
-                          {centerText}
-                        </span>
-                      </div>
-                      
-                      {/* Dynamic Grid Boxes */}
-                      <div className="flex-1 w-full grid grid-cols-[7fr_3fr] grid-rows-2 border-t border-black text-[9px] font-bold">
-                        <div className="border-r border-b border-black flex items-center justify-center overflow-hidden px-1">{boxTL}</div>
-                        <div className="border-b border-black flex items-center justify-center overflow-hidden px-1">{boxTR}</div>
-                        <div className="border-r border-black flex items-center justify-center overflow-hidden px-1">{boxBL}</div>
-                        <div className="flex items-center justify-center overflow-hidden px-1">{boxBR}</div>
+                    <div key={item} className="border border-black flex flex-col bg-white shadow-sm shrink-0 box-border" style={{ width: `${labelWidth * 4}px`, height: `${labelHeight * 4}px` }}>
+                      <div className="text-center font-bold uppercase text-[10px] leading-tight mt-1 px-1">Sreedhar<br />Traders</div>
+                      <div className="flex-1 flex items-center justify-center overflow-hidden px-1"><span className="text-black text-[10px] font-bold tracking-widest">{centerText}</span></div>
+                      <div className="h-[40%] w-full grid grid-cols-[7fr_3fr] grid-rows-2 border-t border-black text-[9px] font-bold">
+                        <div className="border-r border-b border-black flex items-center justify-center px-1">{boxTL}</div>
+                        <div className="border-b border-black flex items-center justify-center px-1">{boxTR}</div>
+                        <div className="border-r border-black flex items-center justify-center px-1">{boxBL}</div>
+                        <div className="flex items-center justify-center px-1">{boxBR}</div>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-              
               <p className="text-gray-400 text-xs mt-6 text-center max-w-sm">
-                Labels print exactly as shown above. Multi-row shrinking is disabled.
+                If the printed labels bleed off the physical sticker or are pushed too far right, adjust the Calibration settings.
               </p>
             </div>
           </div>
 
-          {/* Right Column: Print Controls Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="bg-gray-100 border-b border-gray-200 px-6 py-4">
-              <h2 className="text-sm font-bold tracking-widest uppercase text-gray-700">
-                Configuration
-              </h2>
-            </div>
-
-            <div className="p-6 md:p-8 flex flex-col gap-8">
-              
-              {/* SECTION: LABEL CONTENT */}
-              <div className="flex flex-col gap-4">
-                <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest border-b pb-2">1. Label Content</h3>
-                
+          {/* RIGHT COLUMN: Config Panels (Scrolling) */}
+          <div className="flex flex-col gap-6">
+            
+            {/* Calibration Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-gray-100 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+                <h2 className="text-sm font-bold tracking-widest uppercase text-gray-700">
+                  Printer Calibration
+                </h2>
+                <span className="text-xs font-bold text-gray-400">MEASUREMENTS IN MM</span>
+              </div>
+              <div className="p-6 grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1">Center Text (Below Header)</label>
-                  <input
-                    type="text"
-                    maxLength={10}
-                    value={centerText}
-                    onChange={(e) => setCenterText(e.target.value.toUpperCase())}
-                    className="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-black focus:ring-1 focus:ring-black uppercase font-medium"
-                  />
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Label Width</label>
+                  <input type="number" step="0.5" value={labelWidth} onChange={(e) => setLabelWidth(Number(e.target.value))} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black" />
                 </div>
-
-                <div className="grid grid-cols-[7fr_3fr] gap-x-3 gap-y-3 mt-2">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-600 mb-1">Top Left Box</label>
-                    <input
-                      type="text"
-                      maxLength={8}
-                      value={boxTL}
-                      onChange={(e) => setBoxTL(e.target.value.toUpperCase())}
-                      className="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-black focus:ring-1 focus:ring-black uppercase font-medium"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-600 mb-1">Top Right Box</label>
-                    <input
-                      type="text"
-                      maxLength={4}
-                      value={boxTR}
-                      onChange={(e) => setBoxTR(e.target.value.toUpperCase())}
-                      className="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-black focus:ring-1 focus:ring-black uppercase font-medium"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-600 mb-1">Bottom Left Box</label>
-                    <input
-                      type="text"
-                      maxLength={8}
-                      value={boxBL}
-                      onChange={(e) => setBoxBL(e.target.value.toUpperCase())}
-                      className="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-black focus:ring-1 focus:ring-black uppercase font-medium"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-600 mb-1">Bottom Right Box</label>
-                    <input
-                      type="text"
-                      maxLength={4}
-                      value={boxBR}
-                      onChange={(e) => setBoxBR(e.target.value.toUpperCase())}
-                      className="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-black focus:ring-1 focus:ring-black uppercase font-medium"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Label Height</label>
+                  <input type="number" step="0.5" value={labelHeight} onChange={(e) => setLabelHeight(Number(e.target.value))} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Gap Between Labels</label>
+                  <input type="number" step="0.5" value={horizontalGap} onChange={(e) => setHorizontalGap(Number(e.target.value))} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Left Offset (Margin)</label>
+                  <input type="number" step="0.5" value={leftOffset} onChange={(e) => setLeftOffset(Number(e.target.value))} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black" />
                 </div>
               </div>
+            </div>
 
-              {/* SECTION: PRINTING */}
-              <div className="flex flex-col gap-4 mt-4">
-                <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest border-b pb-2">2. Print Execution</h3>
-                
+            {/* Print Controls Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-gray-100 border-b border-gray-200 px-6 py-4">
+                <h2 className="text-sm font-bold tracking-widest uppercase text-gray-700">
+                  Label Content
+                </h2>
+              </div>
+              <div className="p-6 flex flex-col gap-6">
                 <div>
-                  <label htmlFor="copies" className="block text-xs font-bold text-gray-600 mb-1">
-                    Total Number of Labels
-                  </label>
-                  <input
-                    id="copies"
-                    type="number"
-                    min="1"
-                    value={numPrints}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setNumPrints(val === '' ? '' : parseInt(val, 10));
-                    }}
-                    onBlur={() => {
-                      if (numPrints === '' || numPrints < 1) {
-                        setNumPrints(1);
-                      }
-                    }}
-                    className="w-full border-2 border-gray-300 rounded-lg p-3 text-lg focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
-                  />
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Center Text</label>
+                  <input type="text" maxLength={10} value={centerText} onChange={(e) => setCenterText(e.target.value.toUpperCase())} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black uppercase font-medium" />
+                </div>
+                <div className="grid grid-cols-[7fr_3fr] gap-x-3 gap-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">Top Left</label>
+                    <input type="text" maxLength={8} value={boxTL} onChange={(e) => setBoxTL(e.target.value.toUpperCase())} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black uppercase font-medium" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">Top Right</label>
+                    <input type="text" maxLength={4} value={boxTR} onChange={(e) => setBoxTR(e.target.value.toUpperCase())} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black uppercase font-medium" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">Bottom Left</label>
+                    <input type="text" maxLength={8} value={boxBL} onChange={(e) => setBoxBL(e.target.value.toUpperCase())} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black uppercase font-medium" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">Bottom Right</label>
+                    <input type="text" maxLength={4} value={boxBR} onChange={(e) => setBoxBR(e.target.value.toUpperCase())} className="w-full border border-gray-300 rounded p-2 focus:ring-1 focus:ring-black uppercase font-medium" />
+                  </div>
                 </div>
 
-                <div className="flex flex-col gap-3 mt-2">
-                  <button
-                    onClick={handlePrint}
-                    disabled={!isConnected}
-                    className={`w-full font-bold py-4 px-6 rounded-lg uppercase tracking-wider transition-all duration-200 ${isConnected
-                        ? 'bg-black text-white hover:bg-gray-800 hover:shadow-lg active:scale-[0.98] cursor-pointer'
-                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      }`}
-                  >
+                <div className="border-t border-gray-200 pt-4 mt-2">
+                  <label className="block text-xs font-bold text-gray-600 mb-2">Total Number of Labels</label>
+                  <input type="number" min="1" value={numPrints} onChange={(e) => setNumPrints(e.target.value === '' ? '' : parseInt(e.target.value, 10))} onBlur={() => { if (numPrints === '' || numPrints < 1) setNumPrints(1); }} className="w-full border-2 border-gray-300 rounded-lg p-3 text-lg focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors mb-4" />
+                  
+                  <button onClick={handlePrint} disabled={!isConnected} className={`w-full font-bold py-4 px-6 rounded-lg uppercase tracking-wider transition-all duration-200 ${isConnected ? 'bg-black text-white hover:bg-gray-800 hover:shadow-lg active:scale-[0.98] cursor-pointer' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
                     Print {numPrints || 0} Labels
                   </button>
-
                   {!isConnected && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-2">
-                      <p className="text-sm text-red-600 font-medium flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        QZ Tray is disconnected.
-                      </p>
-                      <p className="text-xs text-red-500 mt-1 ml-7">
-                        Ensure the QZ Tray application is running on your computer, then refresh this page.
-                      </p>
-                    </div>
+                    <p className="text-xs text-red-500 mt-3 text-center font-medium">QZ Tray is disconnected. Ensure it is running.</p>
                   )}
                 </div>
               </div>
