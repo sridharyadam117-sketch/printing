@@ -12,10 +12,10 @@ export default function App() {
   const [boxBL, setBoxBL] = useState('10'); 
   const [boxBR, setBoxBR] = useState('1');  
 
-  // Calibration (in millimeters) - Left Margin completely removed!
-  const [labelWidth, setLabelWidth] = useState(22);
+  // Calibration (in millimeters) - Adjusted for safe hardware print margins
+  const [labelWidth, setLabelWidth] = useState(21.5); // Slightly smaller to ensure outer borders print
   const [labelHeight, setLabelHeight] = useState(22);
-  const [horizontalGap, setHorizontalGap] = useState(3.5); 
+  const [horizontalGap, setHorizontalGap] = useState(3.2); // Tightened gap
   const [topMargin, setTopMargin] = useState(1.5);
 
   const labelRef = useRef(null);
@@ -49,7 +49,6 @@ export default function App() {
       const printer = await qz.printers.getDefault();
       const totalLabels = parseInt(numPrints, 10) || 1;
 
-      // CONFIG: Exactly matches your Windows Driver 101.6mm
       const config = qz.configs.create(printer, {
         copies: 1, 
         size: { width: 101.6, height: 25 }, 
@@ -99,19 +98,20 @@ export default function App() {
                   font-family: sans-serif; 
                   background: white; 
                   color: black; 
-                  width: 101.6mm; 
-                  height: 25mm; 
+                  width: 100%; /* Adapts to exact driver width */
+                  height: 100%; 
                   overflow: hidden; 
+                  box-sizing: border-box;
                 }
                 
                 .row { 
                   display: flex; 
-                  width: 101.6mm; 
+                  width: 100%; /* Adapts to exact driver width */
                   height: 25mm; 
                   box-sizing: border-box; 
-                  justify-content: center; /* MAGIC FIX: Automatically centers the 4 labels perfectly */
-                  align-items: flex-start; /* Keeps them aligned to the top */
-                  padding-top: ${topMargin}mm; /* Pushes them down without breaking the layout */
+                  justify-content: center; /* PERFECT CENTERING */
+                  align-items: flex-start; 
+                  padding-top: ${topMargin}mm; 
                   gap: ${horizontalGap}mm; 
                 }
                 
@@ -198,7 +198,7 @@ export default function App() {
 
               <div className="w-full bg-gray-50 border border-gray-200 shadow-inner rounded-md overflow-x-auto p-4 sm:p-6" ref={labelRef}>
                 
-                {/* PREVIEW CONTAINER - Now Auto Centered */}
+                {/* PREVIEW CONTAINER - Auto Centered */}
                 <div 
                   className="bg-white border border-dashed border-red-400 mx-auto overflow-hidden flex justify-center items-start"
                   style={{ width: `${101.6 * 5}px`, height: `${25 * 5}px`, paddingTop: `${topMargin * 5}px` }}
@@ -225,7 +225,7 @@ export default function App() {
               </div>
               
               <p className="text-gray-400 text-xs mt-6 text-center max-w-sm">
-                The layout is now strictly auto-centered. Only adjust Width, Height, and Gap.
+                If outside borders clip, <strong>shrink Label Width or Gap</strong> so the entire block fits the print head width.
               </p>
             </div>
           </div>
