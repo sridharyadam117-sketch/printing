@@ -13,11 +13,12 @@ export default function App() {
   const [boxBR, setBoxBR] = useState('1');
 
   // Physical Calibration (millimeters)
-  // NO left padding on the row — labels start at position 0
-  // Only gap between labels is controlled here
-  const [labelWidth, setLabelWidth] = useState(23);
-  const [labelHeight, setLabelHeight] = useState(24);
+  // Math: 4×21mm labels + 3×2mm gaps + 1mm left = 91mm — safely fits 101.6mm roll
+  const [labelWidth, setLabelWidth] = useState(21);
+  const [labelHeight, setLabelHeight] = useState(23);
   const [horizontalGap, setHorizontalGap] = useState(2);
+  const [leftOffset, setLeftOffset] = useState(1);
+  const [topOffset, setTopOffset] = useState(0);
 
   const labelRef = useRef(null);
 
@@ -74,7 +75,7 @@ export default function App() {
         for (let c = 0; c < labelsPerRow; c++) {
           if (r * labelsPerRow + c < totalLabels) {
             rowHtml += `
-              <div class="label${c > 0 ? ' label-gap' : ''}">
+              <div class="label">
                 <div class="header">SREEDHAR<br/>TRADERS</div>
                 <div class="center-text">${centerText}</div>
                 <div class="grid-box">
@@ -86,7 +87,7 @@ export default function App() {
               </div>
             `;
           } else {
-            rowHtml += `<div class="label${c > 0 ? ' label-gap' : ''} empty-label"></div>`;
+            rowHtml += `<div class="label empty-label"></div>`;
           }
         }
         rowHtml += `</div>`;
@@ -118,13 +119,15 @@ export default function App() {
     color: black;
     font-family: Arial, Helvetica, sans-serif;
   }
-  /* NO padding-left, NO padding-top — start at absolute zero */
   .row {
     display: flex;
     flex-direction: row;
     align-items: flex-start;
     width: 101.6mm;
     height: 25mm;
+    padding-left: ${leftOffset}mm;
+    padding-top: ${topOffset}mm;
+    gap: ${horizontalGap}mm;
     overflow: hidden;
   }
   .label {
@@ -136,12 +139,11 @@ export default function App() {
     flex-shrink: 0;
     overflow: hidden;
   }
-  /* Gap applied only as margin-left on 2nd, 3rd, 4th labels — NOT on the first */
-  .label-gap {
-    margin-left: ${horizontalGap}mm;
-  }
   .empty-label {
-    border: none !important;
+    width: ${labelWidth}mm;
+    height: ${labelHeight}mm;
+    flex-shrink: 0;
+    border: none;
   }
   .header {
     text-align: center;
@@ -243,17 +245,19 @@ export default function App() {
                 className="w-full bg-gray-50 border border-gray-200 shadow-inner rounded-md overflow-x-auto p-4 sm:p-6"
                 ref={labelRef}
               >
-                {/* Preview mirrors exact print HTML: no left padding, gap only between labels */}
-                <div className="flex justify-start w-max">
-                  {[0, 1, 2, 3].map((idx) => (
+                <div
+                  className="flex justify-start w-max mx-auto"
+                  style={{
+                    gap: `${horizontalGap * 4}px`,
+                    paddingLeft: `${leftOffset * 4}px`,
+                    paddingTop: `${topOffset * 4}px`,
+                  }}
+                >
+                  {[1, 2, 3, 4].map((item) => (
                     <div
-                      key={idx}
+                      key={item}
                       className="border border-black flex flex-col bg-white shadow-sm shrink-0"
-                      style={{
-                        width: `${labelWidth * 4}px`,
-                        height: `${labelHeight * 4}px`,
-                        marginLeft: idx > 0 ? `${horizontalGap * 4}px` : '0px',
-                      }}
+                      style={{ width: `${labelWidth * 4}px`, height: `${labelHeight * 4}px` }}
                     >
                       <div className="text-center font-bold uppercase text-[9px] leading-tight mt-1 px-1">
                         Sreedhar<br />Traders
@@ -272,16 +276,16 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Live width checker */}
+              {/* Live mm math display */}
               <div className="mt-4 bg-gray-100 rounded-lg px-4 py-3 text-xs text-gray-600 w-full text-center font-mono">
-                {(labelWidth * 4 + horizontalGap * 3).toFixed(1)}mm used of 101.6mm
-                <span className={`ml-2 font-bold ${(labelWidth * 4 + horizontalGap * 3) <= 101.6 ? 'text-green-600' : 'text-red-600'}`}>
-                  {(labelWidth * 4 + horizontalGap * 3) <= 101.6 ? '✓ fits' : '✗ overflows — reduce width or gap'}
+                Total width used: {(labelWidth * 4 + horizontalGap * 3 + leftOffset).toFixed(1)}mm
+                <span className={`ml-2 font-bold ${(labelWidth * 4 + horizontalGap * 3 + leftOffset) <= 101.6 ? 'text-green-600' : 'text-red-600'}`}>
+                  {(labelWidth * 4 + horizontalGap * 3 + leftOffset) <= 101.6 ? '✓ fits in 101.6mm' : '✗ overflows 101.6mm — reduce width or gap'}
                 </span>
               </div>
 
               <p className="text-gray-400 text-xs mt-3 text-center max-w-sm">
-                Labels start at position zero — no left margin. Only adjust Gap if stickers have physical spacing between them.
+                If labels bleed off the sticker or shift, adjust Left Offset or Gap in Calibration.
               </p>
             </div>
           </div>
@@ -289,7 +293,7 @@ export default function App() {
           {/* RIGHT: Config Panels */}
           <div className="flex flex-col gap-6">
 
-            {/* Calibration — removed leftOffset and topOffset entirely */}
+            {/* Calibration */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="bg-gray-100 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
                 <h2 className="text-sm font-bold tracking-widest uppercase text-gray-700">
@@ -299,13 +303,14 @@ export default function App() {
               </div>
               <div className="p-6 grid grid-cols-2 gap-4">
                 {[
-                  { label: 'Label Width', value: labelWidth, setter: setLabelWidth, hint: 'Physical sticker width' },
-                  { label: 'Label Height', value: labelHeight, setter: setLabelHeight, hint: 'Physical sticker height' },
-                  { label: 'Gap Between Labels', value: horizontalGap, setter: setHorizontalGap, hint: 'Space between stickers' },
-                ].map(({ label, value, setter, hint }) => (
+                  { label: 'Label Width', value: labelWidth, setter: setLabelWidth },
+                  { label: 'Label Height', value: labelHeight, setter: setLabelHeight },
+                  { label: 'Gap Between Labels', value: horizontalGap, setter: setHorizontalGap },
+                  { label: 'Left Offset', value: leftOffset, setter: setLeftOffset },
+                  { label: 'Top Offset', value: topOffset, setter: setTopOffset },
+                ].map(({ label, value, setter }) => (
                   <div key={label}>
-                    <label className="block text-xs font-bold text-gray-600 mb-0.5">{label}</label>
-                    <p className="text-[10px] text-gray-400 mb-1">{hint}</p>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">{label}</label>
                     <input
                       type="number"
                       step="0.5"
